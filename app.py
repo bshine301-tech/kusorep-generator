@@ -8,7 +8,7 @@ st.title("💩 クソリプジェネレーター")
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
-    st.error("設定エラー: APIキーがありません")
+    st.error("APIキー設定エラー")
     st.stop()
 
 mode = st.radio("モード", ("年上上司", "熱血マン"))
@@ -17,12 +17,14 @@ user_input = st.text_area("本音を入力")
 if not st.button("生成する"):
     st.stop()
 
-# 思考プロセスを物理的に排除する、極限までシンプルな指示に変更
-sys_p = "あなたはウザい昭和の上司です。部下の言葉に対して、理不尽な精神論の説教を【日本語のみ】で、セリフ【のみ】返してください。" if mode == "年上上司" else "あなたはウザい熱血マンです。部下の言葉に対して、ピンチを大チャンスだと全肯定する暑苦しいセリフ【のみ】を日本語で返してください。"
+# 命令文をさらに極限まで厳しく「セリフのみ」に固定
+if mode == "年上上司":
+    sys_p = "あなたはウザい昭和の上司です。部下の言葉に対して、理不尽な精神論の説教を【日本語のセリフのみ】で返せ。思考プロセス、解説、英語は一切禁止。"
+else:
+    sys_p = "あなたはウザい熱血マンです。部下の言葉に対して、ピンチを大チャンスだと全肯定する熱いセリフを【日本語のセリフのみ】で返せ。思考プロセス、解説、英語は一切禁止。"
 
-# payloadを極限までシンプルにする
 payload = {
-    "contents": [{"parts": [{"text": f"ルール: 思考プロセスは禁止。解説禁止。英語禁止。以下の指示に従い、セリフのみ出力せよ。\n\n指示: {sys_p}\n部下の言葉: {user_input}\n\nあなたの返答:"}]}]
+    "contents": [{"parts": [{"text": f"ルール: セリフのみ出力せよ。解説禁止。英語禁止。指示: {sys_p} 相手の言葉: {user_input} 返答:"}]}]
 }
 
 with st.spinner("練っています..."):
@@ -40,7 +42,8 @@ with st.spinner("練っています..."):
 
     if reply_text:
         st.info(reply_text)
-        share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(f"【クソリプ】\n{reply_text}")
+        share_text = f"【クソリプ】\n{reply_text}"
+        share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(share_text)
         st.markdown(f'<a href="{share_url}" target="_blank">𝕏 でシェアする</a>', unsafe_allow_html=True)
     else:
-        st.error("エラーが発生しました。")
+        st.error("エラーです。")
