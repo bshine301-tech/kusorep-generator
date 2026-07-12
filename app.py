@@ -3,37 +3,36 @@ import urllib.parse
 import google.generativeai as genai
 
 st.set_page_config(page_title="クソリプジェネレーター", page_icon="💩")
-
 st.title("💩 クソリプジェネレーター")
-st.write("あなたの本音や愚痴に、AIが最高にイラッとするクソリプを返します。")
 
-st.sidebar.header("🔑 APIキー設定")
-api_key = st.sidebar.text_input("Gemini APIキーを入力", type="password")
+api_key = st.sidebar.text_input("Gemini APIキー", type="password")
+mode = st.radio("モード", ("年上上司", "熱血マン"))
+user_input = st.text_area("本音を入力してください")
 
-mode = st.radio("クソリプのモード：", ("年上上司からのクソリプ", "熱血ポジティブクソリプ"))
-user_input = st.text_area("あなたの本音・愚痴を入力してください", placeholder="例：明日から仕事だ、行きたくない！")
-
-if st.button("クソリプを生成する", type="primary"):
-    if not api_key:
-        st.error("👈 左のサイドバーにAPIキーを入力してください！")
-    elif not user_input:
-        st.warning("本音を入力してください！")
-    else:
-        try:
-            genai.configure(api_key=api_key)
-            
-            valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            
-            if not valid_models:
-                st.error("このAPIキーではAIモデルが利用できません。コピー間違いがないか確認してください。")
-                st.stop()
-                
-            model = genai.GenerativeModel(valid_models[0])
-            
-            if mode == "年上上司からのクソリプ":
-                system_prompt = "あなたは「最高にイラッとする昭和気質の年上上司」です。結論は出さず、「泥臭さ」などの精神論や「僕の若い頃はね…」という自分語りを交えて、200文字程度で的外れな説教をしてください。"
-            else:
-                system_prompt = "あなたは「ウザいほど超前向きな熱血マン」です。相手の怒りに一切共感せず、すべてを「次への貴重なデータ！」「大チャンス！」と全肯定し、語尾に「！」を多用して200文字程度でテンション高く返してください。"
+if st.button("生成する"):
+    genai.configure(api_key=api_key)
+    
+    # 使えるモデルを取得
+    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    model = genai.GenerativeModel(models[0])
+    
+    # プロンプトの設定（段落を浅くしてエラーを回避）
+    sys_prompt = "あなたはイラッとする昭和の上司です。精神論と自分語りで200文字で説教して。"
+    if mode == "熱血マン":
+        sys_prompt = "あなたはウザい熱血マンです。怒りを大チャンスと全肯定し200文字で返して。"
+        
+    # AIへ送信
+    prompt = f"【設定】\n{sys_prompt}\n\n【入力】\n{user_input}"
+    response = model.generate_content(prompt)
+    
+    # 結果の表示
+    st.success("クソリプが届きました！")
+    st.info(response.text)
+    
+    # Xシェアボタン
+    share_text = f"【私の本音】\n{user_input}\n\n【クソリプ】\n{response.text}\n\n#クソリプジェネ"
+    share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(share_text)
+    st.markdown(f'<a href="{share_url}" target="_blank" style="background-color:black;color:white;padding:10px;border-radius:10px;text-decoration:none;">𝕏 でシェアする</a>', unsafe_allow_html=True)
 
             prompt = f"【設定】\n{system_prompt}\n\n【ユーザーの入力】\n{user_input}\n\n【あなたの回答】"
             
