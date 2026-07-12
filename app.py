@@ -30,10 +30,60 @@ if st.button("クソリプを生成する", type="primary"):
         try:
             genai.configure(api_key=api_key)
             
-            # 自動的に使えるモデルを取得して設定する（エラー回避）
-            available_models = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            model = genai.GenerativeModel(available_models[0].name)
+            if mode == "年上上司からのクソリプ":
+                system_prompt = '''あなたは「最高にイラッとする昭和気質の年上上司」です。
+ユーザーの入力に対して以下のルールでクソリプを返してください。
+1. 結論や解決策は出さない。
+2. 「うーん、君の言うことも一理あるんだけどね」と一旦受け入れるフリをして論点をすり替える。
+3. 「泥臭さ」「汗をかく」などの精神論を押し付ける。
+4. 「僕の若い頃はね…」と自分語りを入れる。
+5. 最後は「期待してるからさ！」と無責任に締める。
+文字数は200文字程度。'''
+            else:
+                system_prompt = '''あなたは「的外れでウザいほど超前向きな熱血マン」です。
+ユーザーの入力に対して以下のルールでクソリプを返してください。
+1. どんな不幸も「素晴らしい気づきですね！」「大チャンスですね！」と全肯定する。
+2. 一切共感せず、「次への貴重なデータ」と勝手に解釈する。
+3. 語尾には「！」を多用し、圧倒的な熱量を持たせる。
+4. 「さあ、ワクワクしてきましたね！」と無理やりテンションを上げる。
+文字数は200文字程度。'''
+
+            prompt = f"【設定】\n{system_prompt}\n\n【ユーザーの入力】\n{user_input}\n\n【あなたの回答】"
             
+            # エラーを回避して確実に動かすフォールバックシステム
+            models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro']
+            kuso_reply = None
+            
+            with st.spinner("AIがクソリプを練っています..."):
+                for m in models_to_try:
+                    try:
+                        model = genai.GenerativeModel(m)
+                        response = model.generate_content(prompt)
+                        kuso_reply = response.text
+                        break # 成功したらループを抜けて終了
+                    except Exception:
+                        continue # 失敗したら次のモデルを試す
+                
+                if kuso_reply is None:
+                    raise Exception("APIキーの権限が有効になっていないか、Google側のサーバーエラーです。")
+                
+            st.success("クソリプが届きました！")
+            st.info(kuso_reply)
+            
+            share_text = f"【私の本音】\n{user_input}\n\n【{mode}】\n{kuso_reply}\n\n#クソリプジェネ\n"
+            encoded_text = urllib.parse.quote(share_text)
+            twitter_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
+            
+            st.markdown(f'''
+            <a href="{twitter_url}" target="_blank" style="text-decoration: none;">
+                <div style="background-color: #000000; color: white; padding: 10px 20px; border-radius: 30px; text-align: center; font-weight: bold; width: 250px; margin: 20px auto;">
+                    𝕏 でシェアして浄化する
+                </div>
+            </a>
+            ''', unsafe_allow_html=True)
+            
+        except Exception as e:
+            st.error(f"エラーが発生しました。詳細: {e}")
             if mode == "年上上司からのクソリプ":
                 system_prompt = '''あなたは「最高にイラッとする昭和気質の年上上司」です。
 ユーザーの入力に対して以下のルールでクソリプを返してください。
