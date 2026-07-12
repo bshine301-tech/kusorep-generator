@@ -5,7 +5,7 @@ import requests
 st.set_page_config(page_title="クソリプジェネレーター", page_icon="💩")
 st.title("💩 クソリプジェネレーター")
 
-# 秘密の金庫からAPIキーを自動で読み込む（お友達は入力不要！）
+# 秘密の金庫からAPIキーを自動で読み込む
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
@@ -22,8 +22,9 @@ if not user_input:
     st.warning("本音を入力してください")
     st.stop()
 
-sys_p = "あなたはウザい昭和の上司です。精神論で説教して。" if mode == "年上上司" else "あなたはウザい熱血マンです。大チャンスと全肯定して。"
-prompt = f"設定: {sys_p}\n入力: {user_input}"
+# AIへの命令を「絶対になりきる」ように超強化
+sys_p = "あなたはウザい昭和の上司です。精神論で説教してください。" if mode == "年上上司" else "あなたはウザい熱血マンです。大チャンスだと全肯定してください。"
+prompt = f"【厳守】\n以下の設定に完全になりきって、返信のセリフ「のみ」を日本語で出力してください。設定の分析や英語での解説は一切不要です。\n\n【設定】\n{sys_p}\n\n【相手の本音】\n{user_input}\n\n【あなたのクソリプ】:"
 
 with st.spinner("AIがクソリプを練っています..."):
     list_url = "https://generativelanguage.googleapis.com/v1beta/models?key=" + api_key
