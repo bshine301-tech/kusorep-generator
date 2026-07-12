@@ -8,42 +8,32 @@ st.title("💩 クソリプジェネレーター")
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
-    st.error("APIキー設定エラー")
+    st.error("API設定エラー")
     st.stop()
 
 mode = st.radio("モード", ("年上上司", "熱血マン"))
 user_input = st.text_area("本音を入力")
 
-if not st.button("生成する"):
-    st.stop()
-
-# 命令文をさらに極限まで厳しく「セリフのみ」に固定
-if mode == "年上上司":
-    sys_p = "あなたはウザい昭和の上司です。部下の言葉に対して、理不尽な精神論の説教を【日本語のセリフのみ】で返せ。思考プロセス、解説、英語は一切禁止。"
-else:
-    sys_p = "あなたはウザい熱血マンです。部下の言葉に対して、ピンチを大チャンスだと全肯定する熱いセリフを【日本語のセリフのみ】で返せ。思考プロセス、解説、英語は一切禁止。"
-
-payload = {
-    "contents": [{"parts": [{"text": f"ルール: セリフのみ出力せよ。解説禁止。英語禁止。指示: {sys_p} 相手の言葉: {user_input} 返答:"}]}]
-}
-
-with st.spinner("練っています..."):
-    list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-    models_data = requests.get(list_url).json()
-    
-    reply_text = None
-    for m in models_data.get("models", []):
-        if "generateContent" in m.get("supportedGenerationMethods", []):
-            gen_url = f"https://generativelanguage.googleapis.com/v1beta/{m['name']}:generateContent?key={api_key}"
-            res = requests.post(gen_url, headers={'Content-Type': 'application/json'}, json=payload)
-            if res.status_code == 200:
-                reply_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-                break
-
-    if reply_text:
-        st.info(reply_text)
-        share_text = f"【クソリプ】\n{reply_text}"
-        share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(share_text)
-        st.markdown(f'<a href="{share_url}" target="_blank">𝕏 でシェアする</a>', unsafe_allow_html=True)
+if st.button("生成する"):
+    if not user_input:
+        st.warning("本音を入力してください")
     else:
-        st.error("エラーです。")
+        # キャラ設定を「システム側」に固定し、ユーザー入力を完全に分離する
+        role = "あなたはウザい昭和の上司です。部下の言葉に対して、理不尽な精神論（気合、根性、魂）だけで説教するセリフのみを返してください。解説や英語は禁止。" if mode == "年上上司" else "あなたはウザい熱血マンです。部下の言葉に対して、ピンチを大チャンスだと全肯定する熱いセリフのみを返してください。解説や英語は禁止。"
+        
+        payload = {
+            "system_instruction": {"parts": [{"text": role}]},
+            "contents": [{"parts": [{"text": f"入力:{user_input}\nセリフ:"}]}]
+        }
+        
+        # APIバージョンを明示的に指定して実行
+        gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        res = requests.post(gen_url, headers={'Content-Type': 'application/json'}, json=payload).json()
+        
+        try:
+            reply = res['candidates'][0]['content']['parts'][0]['text']
+            st.info(reply)
+            share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(reply)
+            st.markdown(f'<a href="{share_url}" target="_blank">𝕏 でシェアする</a>', unsafe_allow_html=True)
+        except:
+            st.error("生成失敗：設定を見直してください")
