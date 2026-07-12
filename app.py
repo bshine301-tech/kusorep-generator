@@ -21,28 +21,27 @@ if not user_input:
     st.warning("本音を入力してください")
     st.stop()
 
-# お手本（例）を示すことで、AIに英語や解説を書く隙を与えない最強の命令
+# モードごとの設定と会話例
 if mode == "年上上司":
-    sys_p = "ウザい昭和の上司として、精神論で説教してください。"
+    sys_p = "あなたはウザい昭和の上司です。部下の言葉に対して、理不尽な精神論（気合、根性など）で説教するセリフのみを日本語で返してください。思考プロセスや解説は絶対に出力しないでください。"
     ex_in = "疲れた"
     ex_out = "なんだその弱音は！理屈じゃない、気合と根性で乗り切れ！"
 else:
-    sys_p = "ウザい熱血マンとして、大チャンスだと全肯定してください。"
+    sys_p = "あなたはウザい熱血マンです。部下の言葉に対して、ピンチを大チャンスだと全肯定する暑苦しいセリフのみを日本語で返してください。思考プロセスや解説は絶対に出力しないでください。"
     ex_in = "疲れた"
     ex_out = "素晴らしい！限界を超えて成長する特大のチャンスだね！"
 
-prompt = f"""あなたは役者です。思考プロセスや英語での解説は【一切出力せず】、日本語のセリフのみを直接出力してください。
-
-【設定】
-{sys_p}
-
-【例】
-相手: {ex_in}
-あなた: {ex_out}
-
-【本番】
-相手: {user_input}
-あなた:"""
+# 箱を明確に分けて、AIに「分析」ではなく「会話」だと思い込ませる
+payload = {
+    "systemInstruction": {
+        "parts": [{"text": sys_p}]
+    },
+    "contents": [
+        {"role": "user", "parts": [{"text": ex_in}]},
+        {"role": "model", "parts": [{"text": ex_out}]},
+        {"role": "user", "parts": [{"text": user_input}]}
+    ]
+}
 
 with st.spinner("AIがクソリプを練っています..."):
     list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
@@ -57,7 +56,7 @@ with st.spinner("AIがクソリプを練っています..."):
     for m in models_data.get("models", []):
         if "generateContent" in m.get("supportedGenerationMethods", []):
             gen_url = f"https://generativelanguage.googleapis.com/v1beta/{m['name']}:generateContent?key={api_key}"
-            res = requests.post(gen_url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
+            res = requests.post(gen_url, headers={'Content-Type': 'application/json'}, json=payload)
             
             if res.status_code == 200:
                 reply_text = res.json()['candidates'][0]['content']['parts'][0]['text']
