@@ -30,7 +30,10 @@ if st.button("クソリプを生成する", type="primary"):
         try:
             # Gemini APIの設定
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            
+            # 使えるモデルを自動検索して設定するコード
+            available_models = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            model = genai.GenerativeModel(available_models[0].name)
 
             # システムプロンプトの設定
             if mode == "年上上司からのクソリプ":
