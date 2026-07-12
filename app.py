@@ -1,5 +1,4 @@
 import streamlit as st
-import urllib.parse
 import requests
 
 st.set_page_config(page_title="クソリプジェネレーター", page_icon="💩")
@@ -20,25 +19,36 @@ if not user_input:
     st.warning("本音を入力してください")
     st.stop()
 
-sys_prompt = "あなたはウザい昭和の上司です。精神論で説教して。"
-if mode == "熱血マン":
-    sys_prompt = "あなたはウザい熱血マンです。大チャンスと全肯定して。"
+# 1. 決め打ちをやめ、あなたのキーで使えるモデルを自動で取得する
+list_url = "https://generativelanguage.googleapis.com/v1beta/models?key=" + api_key
+models_data = requests.get(list_url).json()
 
-prompt = f"設定: {sys_prompt}\n入力: {user_input}"
-url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + api_key
-data = {"contents": [{"parts": [{"text": prompt}]}]}
+if "error" in models_data:
+    st.error(f"APIキーが無効です: {models_data}")
+    st.stop()
 
-res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data)
+use_model = ""
+for m in models_data.get("models", []):
+    if "generateContent" in m.get("supportedGenerationMethods", []):
+        use_model = m["name"]
+        break
+
+if not use_model:
+    st.error("このキーで使えるAIがありません")
+    st.stop()
+
+# 2. 見つけたモデルを使ってクソリプを生成する
+sys_p = "あなたはウザい昭和の上司です。精神論で説教して。" if mode == "年上上司" else "あなたはウザい熱血マンです。大チャンスと全肯定して。"
+prompt = f"設定: {sys_p}\n入力: {user_input}"
+gen_url = f"https://generativelanguage.googleapis.com/v1beta/{use_model}:generateContent?key={api_key}"
+
+res = requests.post(gen_url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]})
 res_data = res.json()
 
 if res.status_code != 200:
-    st.error(f"エラー発生: {res_data}")
+    st.error(f"生成エラー: {res_data}")
     st.stop()
 
-kuso_reply = res_data['candidates'][0]['content']['parts'][0]['text']
-st.success("クソリプが届きました！")
-st.info(kuso_reply)
-
-share_text = f"【私の本音】\n{user_input}\n\n【クソリプ】\n{kuso_reply}\n\n#クソリプジェネ"
-share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(share_text)
-st.markdown(f'<a href="{share_url}" target="_blank" style="background-color:black;color:white;padding:10px;border-radius:10px;text-decoration:none;">𝕏 でシェアする</a>', unsafe_allow_html=True)
+reply = res_data['candidates'][0]['content']['parts'][0]['text']
+st.success(f"成功！(使用AI: {use_model})")
+st.info(reply)
