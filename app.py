@@ -30,8 +30,8 @@ if st.button("クソリプを生成する", type="primary"):
         try:
             # Gemini APIの設定
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            
+            model = genai.GenerativeModel('gemini-pro')
+
             # システムプロンプトの設定
             if mode == "年上上司からのクソリプ":
                 system_prompt = '''あなたは「最高にイラッとする昭和気質の年上上司」です。
