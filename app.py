@@ -5,35 +5,63 @@ import google.generativeai as genai
 st.set_page_config(page_title="クソリプジェネレーター", page_icon="💩")
 
 st.title("💩 クソリプジェネレーター")
-st.write("あなたの本音や愚痴に、AIが最高にイラッとする（または的外れな）クソリプを返します。")
+st.write("あなたの本音や愚痴に、AIが最高にイラッとするクソリプを返します。")
 
-# 秘密の保管庫（Secrets）からAPIキーを自動で読み込む
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    st.sidebar.header("設定")
-    api_key = st.sidebar.text_input("Gemini APIキーを入力", type="password")
+# サイドバーで直接APIキーを入力させる（確実な方法）
+st.sidebar.header("🔑 APIキー設定")
+api_key = st.sidebar.text_input("Gemini APIキーを入力", type="password")
+st.sidebar.markdown("[APIキーの取得はこちら](https://aistudio.google.com/app/apikey)")
 
-mode = st.radio(
-    "クソリプのモードを選んでください：",
-    ("年上上司からのクソリプ", "熱血ポジティブクソリプ")
-)
-
-user_input = st.text_area("あなたの本音・愚痴を入力してください", placeholder="例：この定例会議、完全に無駄なので自動化すべき。")
+mode = st.radio("クソリプのモード：", ("年上上司からのクソリプ", "熱血ポジティブクソリプ"))
+user_input = st.text_area("あなたの本音・愚痴を入力してください", placeholder="例：明日から仕事だ、行きたくない！")
 
 if st.button("クソリプを生成する", type="primary"):
     if not api_key:
-        st.error("APIキーが設定されていません！")
+        st.error("👈 左のサイドバーから、取得したAPIキー（AIza...で始まる文字列）を入力してください！")
     elif not user_input:
         st.warning("本音を入力してください！")
     else:
         try:
             genai.configure(api_key=api_key)
             
+            # APIキーで本当に使えるモデルだけをリストアップして一番上を使う
+            valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            if not valid_models:
+                st.error("このAPIキーではAIモデルが利用できません。APIキーのコピー間違い（空白が入っている等）がないか確認してください。")
+                st.stop()
+                
+            model = genai.GenerativeModel(valid_models[0])
+            
             if mode == "年上上司からのクソリプ":
-                system_prompt = '''あなたは「最高にイラッとする昭和気質の年上上司」です。
-ユーザーの入力に対して以下のルールでクソリプを返してください。
-1. 結論や解決策は出さない。
+                system_prompt = "あなたは「最高にイラッとする昭和気質の年上上司」です。結論は出さず、「泥臭さ」などの精神論や「僕の若い頃はね…」という自分語りを交えて、200文字程度で的外れな説教をしてください。"
+            else:
+                system_prompt = "あなたは「ウザいほど超前向きな熱血マン」です。相手の怒りに一切共感せず、すべてを「次への貴重なデータ！」「大チャンス！」と全肯定し、語尾に「！」を多用して200文字程度でテンション高く返してください。"
+
+            prompt = f"【設定】\n{system_prompt}\n\n【ユーザーの入力】\n{user_input}\n\n【あなたの回答】"
+            
+            with st.spinner("AIがクソリプを練っています..."):
+                response = model.generate_content(prompt)
+                kuso_reply = response.text
+                
+            st.success("クソリプが届きました！")
+            st.info(kuso_reply)
+            
+            # シェアボタン
+            share_text = f"【私の本音】\n{user_input}\n\n【{mode}】\n{kuso_reply}\n\n#クソリプジェネ\n"
+            encoded_text = urllib.parse.quote(share_text)
+            twitter_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
+            
+            st.markdown(f'''
+            <a href="{twitter_url}" target="_blank" style="text-decoration: none;">
+                <div style="background-color: #000000; color: white; padding: 10px 20px; border-radius: 30px; text-align: center; font-weight: bold; width: 250px; margin: 20px auto;">
+                    𝕏 でシェアして浄化する
+                </div>
+            </a>
+            ''', unsafe_allow_html=True)
+            
+        except Exception as e:
+            st.error(f"エラーが発生しました。APIキーが正しいか確認してください。\n\n詳細: {e}")
 2. 「うーん、君の言うことも一理あるんだけどね」と一旦受け入れるフリをして論点をすり替える。
 3. 「泥臭さ」「汗をかく」などの精神論を押し付ける。
 4. 「僕の若い頃はね…」と自分語りを入れる。
