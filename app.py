@@ -8,40 +8,38 @@ st.title("💩 クソリプジェネレーター")
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
-    st.error("APIキー設定エラー")
+    st.error("Secrets設定エラー")
     st.stop()
 
 mode = st.radio("モード", ("老害上司", "熱血マン"))
 user_input = st.text_area("本音を入力")
 
 if st.button("生成する") and user_input:
-    role = "昭和の老害上司。説教。日本語のセリフのみ50文字以内。" if mode == "老害上司" else "熱血マン。大チャンスだと全肯定。日本語のセリフのみ50文字以内。"
+    role = "老害上司。説教。セリフのみ日本語50文字以内。" if mode == "老害上司" else "熱血マン。全肯定励まし。セリフのみ日本語50文字以内。"
     
-    # API呼び出し用の共通関数
-    def call_gemini(prompt):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        try:
-            res = requests.post(url, json=payload).json()
-            # candidatesが存在するかチェック
-            if "candidates" in res and len(res["candidates"]) > 0:
-                return res["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                return None
-        except:
-            return None
+    # 1. 使えるモデルを自動で探しに行く（ここで絶対エラーを回避する）
+    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    models_resp = requests.get(models_url).json()
+    model_name = "models/gemini-1.5-flash" # 基本値
+    if "models" in models_resp:
+        for m in models_resp["models"]:
+            if "generateContent" in m.get("supportedGenerationMethods", []):
+                model_name = m["name"]
+                break
 
-    # 1. 生成
-    raw_text = call_gemini(f"指示: {role}。部下の言葉: {user_input}。セリフのみ出力。")
-    
-    if raw_text:
-        # 2. 検閲（ルール違反があれば修正させる）
-        verify_prompt = f"前の回答が『セリフのみ』でない場合、修正せよ。解説や英語は禁止。回答: {raw_text}"
-        final_text = call_gemini(verify_prompt) or raw_text
-        
-        # 表示
-        st.info(final_text)
-        share_url = "https://twitter.com/intent/tweet?text=" + urllib.parse.quote(f"【クソリプ】\n{final_text}")
-        st.markdown(f'<a href="{share_url}" target="_blank">𝕏 でシェアする</a>', unsafe_allow_html=True)
+    # 2. 生成と修正を統合した関数
+    def get_reply(prompt):
+        url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={api_key}"
+        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}).json()
+        if "candidates" in res:
+            return res["candidates"][0]["content"]["parts"][0]["text"]
+        return None
+
+    # 3. 実行
+    raw = get_reply(f"指示:{role}。部下の言葉:{user_input}。セリフのみ出力。")
+    if raw:
+        final = get_reply(f"以下を日本語セリフのみに修正せよ: {raw}") or raw
+        st.info(final)
+        st.markdown(f'[𝕏 でシェア](https://twitter.com/intent/tweet?text={urllib.parse.quote("【クソリプ】\n" + final)})')
     else:
-        st.error("Googleの反応がありません。ボタンをもう一度押してください。")
+        st.error("AIからの通信が拒否されました。APIキーの権限を確認してください。")
